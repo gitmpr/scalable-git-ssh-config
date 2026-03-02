@@ -1,0 +1,11 @@
+# ~/.gitconfigs/client.gitconfig
+#
+# Identity used for a specific client or external org.
+# Duplicate this file for each client that needs a separate identity.
+
+[user]
+    name = Your Professional Name
+    email = you@client.com
+
+[core]
+    sshCommand = ssh -i ~/.ssh/id_client

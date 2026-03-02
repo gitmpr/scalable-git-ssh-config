@@ -1,0 +1,10 @@
+# ~/.gitconfigs/personal.gitconfig
+#
+# Identity used for personal repositories.
+
+[user]
+    name = Your Username
+    email = you@personal.com
+
+[core]
+    sshCommand = ssh -i ~/.ssh/id_personal

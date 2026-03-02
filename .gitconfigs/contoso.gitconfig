@@ -1,0 +1,11 @@
+# ~/.gitconfigs/contoso.gitconfig
+#
+# Identity for an Azure DevOps organization.
+# Azure DevOps requires RSA keys -- see README.md for details.
+
+[user]
+    name = Your Professional Name
+    email = you@company.com
+
+[core]
+    sshCommand = ssh -i ~/.ssh/id_rsa_azuredevops

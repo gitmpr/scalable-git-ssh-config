@@ -1,0 +1,31 @@
+# ~/.gitconfig
+#
+# Example global git configuration.
+# Copy to ~/.gitconfig and adjust paths, names, emails, and key filenames.
+
+# Default identity (used when no includeIf matches)
+[user]
+    name = Your Name
+    email = your-default@email.com
+
+# Base rule per server (covers all orgs on that server)
+[includeIf "gitdir:~/git/github.com/"]
+    path = ~/.gitconfigs/work.gitconfig
+[includeIf "gitdir:~/git/gitlab.com/"]
+    path = ~/.gitconfigs/work.gitconfig
+[includeIf "gitdir:~/git/gitea.example.com/"]
+    path = ~/.gitconfigs/work.gitconfig
+
+# Override for specific orgs that need a different identity
+[includeIf "gitdir:~/git/github.com/personal-account/"]
+    path = ~/.gitconfigs/personal.gitconfig
+[includeIf "gitdir:~/git/github.com/client-org/"]
+    path = ~/.gitconfigs/client.gitconfig
+
+# Azure DevOps organization
+[includeIf "gitdir:~/git/contoso.visualstudio.com/"]
+    path = ~/.gitconfigs/contoso.gitconfig
+
+[core]
+    editor = nvim
+    autocrlf = false

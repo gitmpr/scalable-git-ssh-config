@@ -1,0 +1,10 @@
+# ~/.gitconfigs/work.gitconfig
+#
+# Identity used for work repositories.
+
+[user]
+    name = Your Professional Name
+    email = you@company.com
+
+[core]
+    sshCommand = ssh -i ~/.ssh/id_work
