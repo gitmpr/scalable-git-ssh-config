@@ -365,6 +365,12 @@ chmod 644 ~/.ssh/config
 
 ---
 
+## Related Tools
+
+[git-whoami](https://github.com/gitmpr/git-whoami) -- shows your effective git identity and SSH key for the current directory. Works both inside and outside git repositories. Outside a repo, it resolves `~/.gitconfig` `includeIf` rules against the current directory to show what identity and SSH key would be used when cloning there.
+
+---
+
 ## Alternative Approaches
 
 While the above approach is recommended, some alternatives exist:
