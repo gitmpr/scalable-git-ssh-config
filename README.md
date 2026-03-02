@@ -134,10 +134,12 @@ Host github.com gitlab.com bitbucket.org
     IdentityAgent none
     IdentitiesOnly yes
 
-# Self-hosted git servers
+# Self-hosted git servers - same agent exhaustion prevention applies
 # Gitea/Gogs may use 'gogs' user instead of 'git'
 Host gitea.example.com
     User gogs
+    IdentityAgent none
+    IdentitiesOnly yes
 
 # Remote server administration (separate from git auth)
 Host *.company.internal
