@@ -15,5 +15,4 @@ Setting up GPG (or SSH) keys for signing git commits and tags. Covers key genera
 
 ## Related
 
-- [ssh_git_config.md](ssh_git_config.md) - directory-based identity management
-- [ssh_certificates.md](ssh_certificates.md) - certificate-based SSH authentication
+- [README.md](README.md) - directory-based identity management
