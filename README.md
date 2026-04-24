@@ -9,7 +9,6 @@ Automatically use the right git identity and ssh key for each project. This setu
 - Works with `git clone` -- git resolves the identity config after creating the target directory, so the correct SSH key is used for the initial fetch
 - No wrapper scripts, environment variables, or external dependencies
 - Works with submodules
-- May not work with GUI git clients (compatibility varies by client, test with your preferred tool)
 
 ---
 
@@ -20,7 +19,7 @@ Automatically use the right git identity and ssh key for each project. This setu
 Organize by git server, then by organization/group within that server:
 
 ```bash
-mkdir -p ~/git/{github.com,gitlab.com,gitea.example.com}
+mkdir -p ~/git/{github.com,gitlab.com,bitbucket.org,gitea.example.com}
 mkdir -p ~/.gitconfigs
 ```
 
@@ -39,6 +38,10 @@ mkdir -p ~/.gitconfigs
 │   └── work-group/
 │       ├── web-platform/
 │       └── deployments/
+├── bitbucket.org/
+│   └── work-workspace/
+│       ├── backend-service/
+│       └── infrastructure/
 └── gitea.example.com/
     └── team/
         └── internal-tools/
@@ -60,6 +63,8 @@ This mirrors how git hosting services organize repositories (host > org/group > 
 [includeIf "gitdir:~/git/github.com/"]
     path = ~/.gitconfigs/work.gitconfig
 [includeIf "gitdir:~/git/gitlab.com/"]
+    path = ~/.gitconfigs/work.gitconfig
+[includeIf "gitdir:~/git/bitbucket.org/"]
     path = ~/.gitconfigs/work.gitconfig
 [includeIf "gitdir:~/git/gitea.example.com/"]
     path = ~/.gitconfigs/work.gitconfig
@@ -107,6 +112,13 @@ Rules are evaluated top to bottom. More specific paths override broader ones, so
 [core]
     sshCommand = ssh -i ~/.ssh/id_client
 ```
+
+**Personal account email**: GitHub and GitLab both offer a noreply address that keeps your real email private while still linking commits to your account. Find yours in account settings under the email section:
+
+- GitHub: `123456+username@users.noreply.github.com`
+- GitLab: `123456+username@users.noreply.gitlab.com` (or just `username@users.noreply.gitlab.com` for older accounts)
+
+Using the noreply address is recommended for personal accounts if your commits are public. Work accounts typically use the company email directly.
 
 ### 4. SSH key generation
 
@@ -171,6 +183,8 @@ This means the key selection happens based on where you clone **to**, not where 
 
 ## Verification
 
+`git whoami` is a custom command from the [git-whoami](https://github.com/gitmpr/git-whoami) tool. Install it first before using it — see the [Related Tools](#related-tools) section below.
+
 ```bash
 # Check identity that would apply in this directory (works inside and outside repos)
 git whoami
@@ -216,6 +230,41 @@ cat ~/.ssh/id_new_client.pub
 
 ---
 
+## Bitbucket
+
+Bitbucket organizes repositories under workspaces. The SSH URL format is:
+
+```
+git@bitbucket.org:{workspace}/{repo}.git
+```
+
+Bitbucket also has an optional "projects" layer for grouping repos within a workspace, but projects are not part of the clone URL. The directory structure follows `host/workspace/repo` directly:
+
+```
+~/git/
+└── bitbucket.org/
+    └── work-workspace/
+        ├── backend-service/
+        └── infrastructure/
+```
+
+SSH config and gitconfig:
+
+```ini
+# ~/.ssh/config
+Host bitbucket.org
+    IdentityAgent none
+    IdentitiesOnly yes
+```
+
+```ini
+# ~/.gitconfig
+[includeIf "gitdir:~/git/bitbucket.org/work-workspace/"]
+    path = ~/.gitconfigs/work.gitconfig
+```
+
+---
+
 ## Azure DevOps SSH
 
 Azure DevOps has two quirks compared to other git hosting services.
@@ -238,31 +287,57 @@ The corresponding gitconfig uses it via `core.sshCommand`:
     sshCommand = ssh -i ~/.ssh/id_rsa_azuredevops
 ```
 
-### URL format
+### URL formats
 
-Azure DevOps SSH URLs look different from standard git hosting services:
+Azure DevOps organizations can be accessed through two different URL formats:
+
+**dev.azure.com** (current format):
+
+```
+git@ssh.dev.azure.com:v3/contoso/Platform/k8s-infra
+```
+
+- SSH hostname: `ssh.dev.azure.com`
+- SSH user: `git`
+- Web URL: `https://dev.azure.com/contoso/`
+
+**{org}.visualstudio.com** (legacy format):
 
 ```
 contoso@vs-ssh.visualstudio.com:v3/contoso/Platform/k8s-infra
 ```
 
-- The SSH hostname is `vs-ssh.visualstudio.com` (not the web hostname `*.visualstudio.com`)
-- The organization name appears as the SSH username (`contoso@`)
-- The path is `v3/{org}/{project}/{repo}` -- `{org}` appears in both the username and the path
-- The "project" level (`Platform`) maps to the second directory level under your org root
+- SSH hostname: `vs-ssh.visualstudio.com`
+- SSH user: the organization name (`contoso@`)
+- Web URL: `https://contoso.visualstudio.com/`
+
+Both use the same path structure: `v3/{org}/{project}/{repo}`. The "project" level (`Platform`) maps to the second directory level under your org root.
+
+An organization can be reachable on both URLs simultaneously (controlled via Organization Settings → Overview). Whichever URL you clone from becomes the remote URL stored in the repo, which determines which directory structure and gitconfig applies.
+
+The `dev.azure.com` format is preferable for directory structure: all Azure DevOps organizations sit under a single `~/git/dev.azure.com/` directory, making them easy to navigate and reason about.
 
 Use the web hostname for your directory structure:
 
 ```
 ~/git/
+├── dev.azure.com/
+│   └── contoso/
+│       └── Platform/         # Azure DevOps project
+│           └── k8s-infra/    # repository
 └── contoso.visualstudio.com/
-    └── Platform/             # Azure DevOps project
-        └── k8s-infra/        # repository
+    └── Platform/
+        └── k8s-infra/
 ```
 
 Clone from the project level:
 
 ```bash
+# dev.azure.com
+cd ~/git/dev.azure.com/contoso/Platform
+git clone git@ssh.dev.azure.com:v3/contoso/Platform/k8s-infra
+
+# visualstudio.com
 cd ~/git/contoso.visualstudio.com/Platform
 git clone contoso@vs-ssh.visualstudio.com:v3/contoso/Platform/k8s-infra
 ```
@@ -271,6 +346,14 @@ git clone contoso@vs-ssh.visualstudio.com:v3/contoso/Platform/k8s-infra
 
 ```ini
 # ~/.ssh/config
+
+# Azure DevOps (dev.azure.com)
+Host ssh.dev.azure.com
+    IdentityFile ~/.ssh/id_rsa_azuredevops
+    IdentitiesOnly yes
+    IdentityAgent none
+
+# Azure DevOps (visualstudio.com legacy)
 Host vs-ssh.visualstudio.com
     IdentityFile ~/.ssh/id_rsa_azuredevops
     IdentitiesOnly yes
@@ -279,11 +362,17 @@ Host vs-ssh.visualstudio.com
 
 ```ini
 # ~/.gitconfig
+
+# dev.azure.com organization
+[includeIf "gitdir:~/git/dev.azure.com/contoso/"]
+    path = ~/.gitconfigs/contoso.gitconfig
+
+# visualstudio.com organization (legacy URL)
 [includeIf "gitdir:~/git/contoso.visualstudio.com/"]
     path = ~/.gitconfigs/contoso.gitconfig
 ```
 
-If you work with multiple Azure DevOps organizations, each gets its own directory and gitconfig pointing to its own RSA key. The SSH hostname `vs-ssh.visualstudio.com` is shared across all Azure DevOps organizations, so key selection is handled by `core.sshCommand` rather than SSH config host entries.
+If you work with multiple Azure DevOps organizations, each gets its own directory and gitconfig pointing to its own RSA key. The SSH hostnames (`ssh.dev.azure.com` and `vs-ssh.visualstudio.com`) are shared across all Azure DevOps organizations, so key selection is handled by `core.sshCommand` in the gitconfig rather than SSH config host entries.
 
 ---
 
@@ -297,6 +386,8 @@ git evaluates configuration in this order:
 4. **System config** (lowest precedence) -- `/etc/gitconfig`
 
 ### Verify active identity
+
+`git whoami` requires the [git-whoami](https://github.com/gitmpr/git-whoami) tool to be installed first.
 
 ```bash
 # Check active git identity and config resolution (works inside and outside repos)
@@ -345,9 +436,7 @@ GIT_SSH_COMMAND="ssh -i ~/.ssh/id_work -vvv" git clone git@github.com:work-org/r
 
 **SSH Agent Key Exhaustion**: After an SSH agent offers several keys, some servers reject further attempts -- commonly configured at a limit of 5 keys. Ubuntu ships with an ssh-agent bundled into GNOME Keyring that is difficult to disable without breaking other applications. WSL on Windows has no agent by default but can use the native Windows ssh-agent service. Solution: set `IdentityAgent none` and `IdentitiesOnly yes` in `~/.ssh/config` for git hosting services.
 
-**Wrong Identity**: The `includeIf` rules match on the path of the `.git` directory (the clone destination), not your current working directory. Use `git whoami` to check which identity and SSH key would apply -- it works both inside repos and in parent directories before cloning.
-
-**GUI Clients**: Some GUI git clients may not respect `core.sshCommand`. Test with your preferred client to verify compatibility.
+**Wrong Identity**: The `includeIf` rules match on the path of the `.git` directory (the clone destination), not your current working directory. Use `git whoami` ([git-whoami](https://github.com/gitmpr/git-whoami), requires installation) to check which identity and SSH key would apply -- it works both inside repos and in parent directories before cloning.
 
 **SSH directory and file permissions**: SSH refuses to use keys with overly permissive permissions and warns with `UNPROTECTED PRIVATE KEY FILE`. Ensure:
 
@@ -377,7 +466,7 @@ chmod 644 ~/.ssh/config
 
 While the above approach is recommended, some alternatives exist:
 
-**SSH Match with exec**: Uses `Match host github.com exec "pwd | grep /path/"` but doesn't work reliably in GUI git clients (VSCode, GitKraken, Tower, etc.) and has PATH dependencies.
+**SSH Match with exec**: Uses `Match host github.com exec "pwd | grep /path/"` but doesn't work reliably across environments and has PATH dependencies.
 
 **Multiple host aliases**: Creates SSH aliases like `github-work`, `github-personal` to distinguish multiple accounts on the same host. This clutters SSH config and can break with submodules, but avoids any directory structure requirements.
 
@@ -393,7 +482,7 @@ Host github-personal
     IdentityFile ~/.ssh/id_personal
 ```
 
-**Environment variables with direnv**: Sets git credentials and SSH command per directory using `.envrc` files. Requires direnv installation and doesn't work with most GUI git clients.
+**Environment variables with direnv**: Sets git credentials and SSH command per directory using `.envrc` files. Requires direnv installation.
 
 ```bash
 # ~/git/github.com/work-org/.envrc
