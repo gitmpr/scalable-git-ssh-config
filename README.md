@@ -1,14 +1,16 @@
-# Directory-based git identity and ssh key management
+# Remote URL-based git identity and SSH key management
 
-Automatically use the right git identity and ssh key for each project. This setup uses git's built-in `includeIf` feature to switch identities based on directory structure.
+Automatically use the right git identity and SSH key for each project. This setup uses git's `includeIf "hasconfig:remote.*.url"` feature to switch identities based on remote URL, so the correct key is selected regardless of where a repo is cloned.
 
 **Why this approach?**
-- Solves ssh-agent key exhaustion (servers reject connections after trying too many keys)
+- Solves SSH agent key exhaustion (servers reject connections after trying too many keys)
 - Scales well with multiple keys and identities
 - Handles multiple accounts on the same host (e.g. github.com, gitlab.com, gitea.example.com) without host aliases
-- Works with `git clone` -- git resolves the identity config after creating the target directory, so the correct SSH key is used for the initial fetch
+- Works with `git clone` -- git writes the remote URL to `.git/config` before the fetch, so `core.sshCommand` is resolved correctly for the initial fetch
+- Identity follows the remote URL, not the clone location -- repos cloned anywhere get the right identity automatically
 - No wrapper scripts, environment variables, or external dependencies
 - Works with submodules
+- Requires git 2.36+
 
 ---
 
@@ -47,7 +49,7 @@ mkdir -p ~/.gitconfigs
         └── internal-tools/
 ```
 
-This mirrors how git hosting services organize repositories (host > org/group > repo), making clone URLs predictable and navigation intuitive. Adding a new server or organization is just `mkdir`.
+This mirrors how git hosting services organize repositories (host > org/group > repo), making clone URLs predictable and navigation intuitive. Adding a new server or organization is just `mkdir`. The directory structure is for navigation -- identity is resolved from the remote URL.
 
 ### 2. Global git config
 
@@ -59,24 +61,26 @@ This mirrors how git hosting services organize repositories (host > org/group > 
     name = Your Name
     email = your-default@email.com
 
-# Base rule per server (covers all orgs on that server)
-[includeIf "gitdir:~/git/github.com/"]
+# Identity per org — matched on remote URL, not clone path
+[includeIf "hasconfig:remote.*.url:git@github.com:work-org/**"]
     path = ~/.gitconfigs/work.gitconfig
-[includeIf "gitdir:~/git/gitlab.com/"]
+[includeIf "hasconfig:remote.*.url:git@gitlab.com:work-group/**"]
     path = ~/.gitconfigs/work.gitconfig
-[includeIf "gitdir:~/git/bitbucket.org/"]
+[includeIf "hasconfig:remote.*.url:git@bitbucket.org:work-workspace/**"]
     path = ~/.gitconfigs/work.gitconfig
-[includeIf "gitdir:~/git/gitea.example.com/"]
+[includeIf "hasconfig:remote.*.url:git@gitea.example.com:**"]
     path = ~/.gitconfigs/work.gitconfig
 
-# Override for specific orgs that need a different identity
-[includeIf "gitdir:~/git/github.com/personal-account/"]
+# Personal account on github.com overrides the default identity
+[includeIf "hasconfig:remote.*.url:git@github.com:personal-account/**"]
     path = ~/.gitconfigs/personal.gitconfig
-[includeIf "gitdir:~/git/github.com/client-org/"]
+
+# Client with separate identity
+[includeIf "hasconfig:remote.*.url:git@github.com:client-org/**"]
     path = ~/.gitconfigs/client.gitconfig
 ```
 
-Rules are evaluated top to bottom. More specific paths override broader ones, so `~/git/github.com/personal-account/` wins over `~/git/github.com/`.
+The pattern after `hasconfig:remote.*.url:` is matched against the remote URL using fnmatch glob syntax. Use `org/**` to match all repos in an org, or `**` to match all repos on a server.
 
 ### 3. Identity config files
 
@@ -168,31 +172,62 @@ Host *
 
 ## How it works
 
-During `git clone`, the **destination directory** determines which SSH key is used:
+During `git clone`, the **remote URL** determines which SSH key is used:
 
-1. git creates the target directory (e.g., `~/git/github.com/work-org/project/`)
-2. git changes into it and runs `git init`
-3. `includeIf "gitdir:~/git/github.com/work-org/"` matches and loads the identity config
-4. git uses the correct SSH key via `core.sshCommand` for the fetch
+1. git creates the target directory and runs `git init`
+2. git writes the remote URL to `.git/config`
+3. git evaluates `includeIf "hasconfig:remote.*.url:..."` rules against the remote URL
+4. The matching identity config is loaded, providing `core.sshCommand` for the fetch
 
-This means the key selection happens based on where you clone **to**, not where you run the command from.
+This means the key selection is tied to the remote URL -- the same identity applies regardless of where on disk the repo lives.
 
-**Note**: This works reliably in git 2.43+. A regression in git 2.44 affecting `includeIf` during clone operations was quickly fixed in subsequent releases.
+**Note**: `hasconfig:remote.*.url` requires git 2.36+ (released April 2022).
+
+---
+
+## Using with ghq
+
+[ghq](https://github.com/x-motemen/ghq) organizes cloned repositories at `{root}/{host}/{org}/{repo}` -- exactly the structure this guide uses. Set `GHQ_ROOT=~/git` (environment variable) or `ghq.root = ~/git` (git config) and ghq integrates with no additional setup:
+
+```bash
+# In git config
+git config --global ghq.root ~/git
+
+# Or as an environment variable (e.g. in ~/.bashrc or config.fish)
+export GHQ_ROOT=~/git        # bash
+set -gx GHQ_ROOT ~/git       # fish
+```
+
+Repos already cloned under `~/git/` are immediately visible to ghq:
+
+```bash
+ghq list                          # lists all repos ghq finds under ~/git
+ghq list --full-path              # with absolute paths
+```
+
+Cloning via ghq places repos in the right directory automatically, so `hasconfig` identity rules apply from the first fetch:
+
+```bash
+ghq get git@github.com:work-org/repo.git        # → ~/git/github.com/work-org/repo/
+ghq get git@gitlab.com:work-group/project.git   # → ~/git/gitlab.com/work-group/project/
+```
+
+`ghq look repo` (or a wrapper that does `cd $(ghq list --full-path repo | head -1)`) jumps directly to any repo by name.
 
 ---
 
 ## Verification
 
-`git whoami` is a custom command from the [git-whoami](https://github.com/gitmpr/git-whoami) tool. Install it first before using it — see the [Related Tools](#related-tools) section below.
+`git whoami` is a custom command from the [git-whoami](https://github.com/gitmpr/git-whoami) tool. Install it first before using it -- see the [Related Tools](#related-tools) section below.
 
 ```bash
-# Check identity that would apply in this directory (works inside and outside repos)
+# Check identity that would apply in this repo
 git whoami
 
-# Verify which SSH key git actually uses during clone (without overriding anything)
+# Verify which SSH key git actually uses during clone
 GIT_TRACE=1 git clone git@github.com:work-org/repo.git
 
-# Check identity and SSH config inside an existing repo
+# Check identity inside an existing repo
 cd ~/git/github.com/work-org/some-repo && git whoami
 ```
 
@@ -205,7 +240,7 @@ cd ~/git/github.com/work-org/some-repo && git whoami
 When a new client or account needs a separate identity:
 
 ```bash
-# 1. Create directory for the org
+# 1. Create directory for the org (for navigation)
 mkdir -p ~/git/github.com/new-client-org
 
 # 2. Generate SSH key
@@ -221,7 +256,7 @@ cat > ~/.gitconfigs/new-client.gitconfig << EOF
 EOF
 
 # 4. Add to ~/.gitconfig
-echo '[includeIf "gitdir:~/git/github.com/new-client-org/"]' >> ~/.gitconfig
+echo '[includeIf "hasconfig:remote.*.url:git@github.com:new-client-org/**"]' >> ~/.gitconfig
 echo '    path = ~/.gitconfigs/new-client.gitconfig' >> ~/.gitconfig
 
 # 5. Add public key to the git hosting account
@@ -238,28 +273,11 @@ Bitbucket organizes repositories under workspaces. The SSH URL format is:
 git@bitbucket.org:{workspace}/{repo}.git
 ```
 
-Bitbucket also has an optional "projects" layer for grouping repos within a workspace, but projects are not part of the clone URL. The directory structure follows `host/workspace/repo` directly:
-
-```
-~/git/
-└── bitbucket.org/
-    └── work-workspace/
-        ├── backend-service/
-        └── infrastructure/
-```
-
-SSH config and gitconfig:
-
-```ini
-# ~/.ssh/config
-Host bitbucket.org
-    IdentityAgent none
-    IdentitiesOnly yes
-```
+Bitbucket also has an optional "projects" layer for grouping repos within a workspace, but projects are not part of the clone URL. A single `hasconfig` rule per workspace covers all repos in it:
 
 ```ini
 # ~/.gitconfig
-[includeIf "gitdir:~/git/bitbucket.org/work-workspace/"]
+[includeIf "hasconfig:remote.*.url:git@bitbucket.org:work-workspace/**"]
     path = ~/.gitconfigs/work.gitconfig
 ```
 
@@ -313,34 +331,7 @@ contoso@vs-ssh.visualstudio.com:v3/contoso/Platform/k8s-infra
 
 Both use the same path structure: `v3/{org}/{project}/{repo}`. The "project" level (`Platform`) maps to the second directory level under your org root.
 
-An organization can be reachable on both URLs simultaneously (controlled via Organization Settings → Overview). Whichever URL you clone from becomes the remote URL stored in the repo, which determines which directory structure and gitconfig applies.
-
-The `dev.azure.com` format is preferable for directory structure: all Azure DevOps organizations sit under a single `~/git/dev.azure.com/` directory, making them easy to navigate and reason about.
-
-Use the web hostname for your directory structure:
-
-```
-~/git/
-├── dev.azure.com/
-│   └── contoso/
-│       └── Platform/         # Azure DevOps project
-│           └── k8s-infra/    # repository
-└── contoso.visualstudio.com/
-    └── Platform/
-        └── k8s-infra/
-```
-
-Clone from the project level:
-
-```bash
-# dev.azure.com
-cd ~/git/dev.azure.com/contoso/Platform
-git clone git@ssh.dev.azure.com:v3/contoso/Platform/k8s-infra
-
-# visualstudio.com
-cd ~/git/contoso.visualstudio.com/Platform
-git clone contoso@vs-ssh.visualstudio.com:v3/contoso/Platform/k8s-infra
-```
+An organization can be reachable on both URLs simultaneously (controlled via Organization Settings → Overview). Whichever URL you clone from becomes the remote URL stored in the repo, which determines which `hasconfig` rule matches.
 
 ### SSH config and gitconfig
 
@@ -363,16 +354,16 @@ Host vs-ssh.visualstudio.com
 ```ini
 # ~/.gitconfig
 
-# dev.azure.com organization
-[includeIf "gitdir:~/git/dev.azure.com/contoso/"]
+# dev.azure.com organization (matches git@ssh.dev.azure.com:v3/contoso/...)
+[includeIf "hasconfig:remote.*.url:git@ssh.dev.azure.com:v3/contoso/**"]
     path = ~/.gitconfigs/contoso.gitconfig
 
-# visualstudio.com organization (legacy URL)
-[includeIf "gitdir:~/git/contoso.visualstudio.com/"]
+# visualstudio.com organization (legacy URL, matches contoso@vs-ssh.visualstudio.com:...)
+[includeIf "hasconfig:remote.*.url:contoso@vs-ssh.visualstudio.com:**"]
     path = ~/.gitconfigs/contoso.gitconfig
 ```
 
-If you work with multiple Azure DevOps organizations, each gets its own directory and gitconfig pointing to its own RSA key. The SSH hostnames (`ssh.dev.azure.com` and `vs-ssh.visualstudio.com`) are shared across all Azure DevOps organizations, so key selection is handled by `core.sshCommand` in the gitconfig rather than SSH config host entries.
+If you work with multiple Azure DevOps organizations, each gets its own `hasconfig` rule and gitconfig. Because `hasconfig` matches on the remote URL, you don't need per-org SSH host entries -- the `core.sshCommand` in each gitconfig handles key selection.
 
 ---
 
@@ -390,7 +381,7 @@ git evaluates configuration in this order:
 `git whoami` requires the [git-whoami](https://github.com/gitmpr/git-whoami) tool to be installed first.
 
 ```bash
-# Check active git identity and config resolution (works inside and outside repos)
+# Check active git identity and config resolution
 git whoami
 
 # Show where individual config values come from
@@ -436,7 +427,9 @@ GIT_SSH_COMMAND="ssh -i ~/.ssh/id_work -vvv" git clone git@github.com:work-org/r
 
 **SSH Agent Key Exhaustion**: After an SSH agent offers several keys, some servers reject further attempts -- commonly configured at a limit of 5 keys. Ubuntu ships with an ssh-agent bundled into GNOME Keyring that is difficult to disable without breaking other applications. WSL on Windows has no agent by default but can use the native Windows ssh-agent service. Solution: set `IdentityAgent none` and `IdentitiesOnly yes` in `~/.ssh/config` for git hosting services.
 
-**Wrong Identity**: The `includeIf` rules match on the path of the `.git` directory (the clone destination), not your current working directory. Use `git whoami` ([git-whoami](https://github.com/gitmpr/git-whoami), requires installation) to check which identity and SSH key would apply -- it works both inside repos and in parent directories before cloning.
+**Wrong Identity**: `hasconfig` rules match on the remote URL stored in `.git/config`. Use `git whoami` ([git-whoami](https://github.com/gitmpr/git-whoami), requires installation) or `git config --show-origin user.email` to verify which identity is active. Check that the remote URL matches your `hasconfig` pattern exactly with `git remote -v`.
+
+**No remote URL**: `hasconfig` rules only fire inside repos that have a remote configured. For local-only repos with no remote, fall back to the default identity or use `gitdir`-based rules (see [Alternative Approaches](#alternative-approaches)).
 
 **SSH directory and file permissions**: SSH refuses to use keys with overly permissive permissions and warns with `UNPROTECTED PRIVATE KEY FILE`. Ensure:
 
@@ -458,13 +451,20 @@ chmod 644 ~/.ssh/config
 
 ## Related Tools
 
-[git-whoami](https://github.com/gitmpr/git-whoami) -- shows your effective git identity and SSH key for the current directory. Works both inside and outside git repositories. Outside a repo, it resolves `~/.gitconfig` `includeIf` rules against the current directory to show what identity and SSH key would be used when cloning there.
+[git-whoami](https://github.com/gitmpr/git-whoami) -- shows your effective git identity and SSH key for the current directory. Works both inside and outside git repositories.
 
 ---
 
 ## Alternative Approaches
 
-While the above approach is recommended, some alternatives exist:
+**`gitdir`-based identity** (git built-in, all versions): Uses `includeIf "gitdir:~/git/..."` to select identity based on clone path rather than remote URL. Requires a consistent directory structure and a separate rule for any repo cloned outside the standard tree. Useful for local-only repos with no remote.
+
+```ini
+[includeIf "gitdir:~/git/github.com/work-org/"]
+    path = ~/.gitconfigs/work.gitconfig
+[includeIf "gitdir:~/git/github.com/personal-account/"]
+    path = ~/.gitconfigs/personal.gitconfig
+```
 
 **SSH Match with exec**: Uses `Match host github.com exec "pwd | grep /path/"` but doesn't work reliably across environments and has PATH dependencies.
 
