@@ -1,31 +1,35 @@
 # ~/.gitconfig
 #
 # Example global git configuration.
-# Copy to ~/.gitconfig and adjust paths, names, emails, and key filenames.
+# Copy to ~/.gitconfig and adjust names, emails, org names, and key filenames.
+# Identity selection is based on the remote URL — works regardless of clone location.
 
 # Default identity (used when no includeIf matches)
 [user]
     name = Your Name
     email = your-default@email.com
 
-# Base rule per server (covers all orgs on that server)
-[includeIf "gitdir:~/git/github.com/"]
-    path = ~/.gitconfigs/work.gitconfig
-[includeIf "gitdir:~/git/gitlab.com/"]
-    path = ~/.gitconfigs/work.gitconfig
-[includeIf "gitdir:~/git/gitea.example.com/"]
-    path = ~/.gitconfigs/work.gitconfig
-
-# Override for specific orgs that need a different identity
-[includeIf "gitdir:~/git/github.com/personal-account/"]
-    path = ~/.gitconfigs/personal.gitconfig
-[includeIf "gitdir:~/git/github.com/client-org/"]
-    path = ~/.gitconfigs/client.gitconfig
-
-# Azure DevOps organization
-[includeIf "gitdir:~/git/contoso.visualstudio.com/"]
-    path = ~/.gitconfigs/contoso.gitconfig
-
 [core]
     editor = nvim
     autocrlf = false
+
+# Personal account on GitHub (SSH and HTTPS remotes)
+[includeIf "hasconfig:remote.*.url:git@github.com:personal-account/**"]
+    path = ~/.gitconfigs/personal.gitconfig
+[includeIf "hasconfig:remote.*.url:https://github.com/personal-account/**"]
+    path = ~/.gitconfigs/personal.gitconfig
+
+# Work org on GitHub
+[includeIf "hasconfig:remote.*.url:git@github.com:work-org/**"]
+    path = ~/.gitconfigs/work.gitconfig
+
+# Azure DevOps organization
+[includeIf "hasconfig:remote.*.url:git@ssh.dev.azure.com:v3/contoso/**"]
+    path = ~/.gitconfigs/contoso.gitconfig
+
+# Unconditional work drop-in — silently ignored if absent (git ≥ 2.13).
+# On a work machine: place ~/.gitconfigs/work.gitconfig containing its own
+# hasconfig conditions per client/server. This keeps those URLs out of the
+# public dotfiles repo. See .gitconfigs/work.gitconfig for an example.
+[include]
+    path = ~/.gitconfigs/work.gitconfig
