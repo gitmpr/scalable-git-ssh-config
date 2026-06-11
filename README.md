@@ -68,7 +68,7 @@ This mirrors how git hosting services organize repositories (host > org/group > 
     path = ~/.gitconfigs/work.gitconfig
 [includeIf "hasconfig:remote.*.url:git@bitbucket.org:work-workspace/**"]
     path = ~/.gitconfigs/work.gitconfig
-[includeIf "hasconfig:remote.*.url:git@gitea.example.com:**"]
+[includeIf "hasconfig:remote.*.url:git@gitea.example.com:*/**"]
     path = ~/.gitconfigs/work.gitconfig
 
 # Personal account on github.com overrides the default identity
@@ -80,7 +80,7 @@ This mirrors how git hosting services organize repositories (host > org/group > 
     path = ~/.gitconfigs/client.gitconfig
 ```
 
-The pattern after `hasconfig:remote.*.url:` is matched against the remote URL using fnmatch glob syntax. Use `org/**` to match all repos in an org, or `**` to match all repos on a server.
+The pattern after `hasconfig:remote.*.url:` is matched against the remote URL using fnmatch glob syntax. Use `org/**` to match all repos in an org, or `*/**` to match all repos on a server.
 
 ### 3. Identity config files
 
@@ -359,7 +359,7 @@ Host vs-ssh.visualstudio.com
     path = ~/.gitconfigs/contoso.gitconfig
 
 # visualstudio.com organization (legacy URL, matches contoso@vs-ssh.visualstudio.com:...)
-[includeIf "hasconfig:remote.*.url:contoso@vs-ssh.visualstudio.com:**"]
+[includeIf "hasconfig:remote.*.url:contoso@vs-ssh.visualstudio.com:*/**"]
     path = ~/.gitconfigs/contoso.gitconfig
 ```
 
