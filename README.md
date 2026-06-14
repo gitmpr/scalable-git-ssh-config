@@ -22,7 +22,7 @@ Organize by git server, then by organization/group within that server:
 
 ```bash
 mkdir -p ~/git/{github.com,gitlab.com,bitbucket.org,gitea.example.com}
-mkdir -p ~/.gitconfigs
+mkdir -p ~/.config/git/identities
 ```
 
 ```
@@ -53,7 +53,7 @@ This mirrors how git hosting services organize repositories (host > org/group > 
 
 ### 2. Global git config
 
-`~/.gitconfig`
+`~/.config/git/config`
 
 ```ini
 # Default identity (used when no includeIf matches)
@@ -63,28 +63,28 @@ This mirrors how git hosting services organize repositories (host > org/group > 
 
 # Identity per org — matched on remote URL, not clone path
 [includeIf "hasconfig:remote.*.url:git@github.com:work-org/**"]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
 [includeIf "hasconfig:remote.*.url:git@gitlab.com:work-group/**"]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
 [includeIf "hasconfig:remote.*.url:git@bitbucket.org:work-workspace/**"]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
 [includeIf "hasconfig:remote.*.url:git@gitea.example.com:*/**"]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
 
 # Personal account on github.com overrides the default identity
 [includeIf "hasconfig:remote.*.url:git@github.com:personal-account/**"]
-    path = ~/.gitconfigs/personal.gitconfig
+    path = ~/.config/git/identities/personal.gitconfig
 
 # Client with separate identity
 [includeIf "hasconfig:remote.*.url:git@github.com:client-org/**"]
-    path = ~/.gitconfigs/client.gitconfig
+    path = ~/.config/git/identities/client.gitconfig
 ```
 
 The pattern after `hasconfig:remote.*.url:` is matched against the remote URL using fnmatch glob syntax. Use `org/**` to match all repos in an org, or `*/**` to match all repos on a server.
 
 ### 3. Identity config files
 
-`~/.gitconfigs/work.gitconfig`
+`~/.config/git/identities/work.gitconfig`
 
 ```ini
 [user]
@@ -95,7 +95,7 @@ The pattern after `hasconfig:remote.*.url:` is matched against the remote URL us
     sshCommand = ssh -i ~/.ssh/id_work
 ```
 
-`~/.gitconfigs/personal.gitconfig`
+`~/.config/git/identities/personal.gitconfig`
 
 ```ini
 [user]
@@ -106,7 +106,7 @@ The pattern after `hasconfig:remote.*.url:` is matched against the remote URL us
     sshCommand = ssh -i ~/.ssh/id_personal
 ```
 
-`~/.gitconfigs/client.gitconfig`
+`~/.config/git/identities/client.gitconfig`
 
 ```ini
 [user]
@@ -247,7 +247,7 @@ mkdir -p ~/git/github.com/new-client-org
 ssh-keygen -t ed25519 -f ~/.ssh/id_new_client
 
 # 3. Create config file
-cat > ~/.gitconfigs/new-client.gitconfig << EOF
+cat > ~/.config/git/identities/new-client.gitconfig << EOF
 [user]
     name = Your Professional Name
     email = you@new-client.com
@@ -255,9 +255,9 @@ cat > ~/.gitconfigs/new-client.gitconfig << EOF
     sshCommand = ssh -i ~/.ssh/id_new_client
 EOF
 
-# 4. Add to ~/.gitconfig
-echo '[includeIf "hasconfig:remote.*.url:git@github.com:new-client-org/**"]' >> ~/.gitconfig
-echo '    path = ~/.gitconfigs/new-client.gitconfig' >> ~/.gitconfig
+# 4. Add to ~/.config/git/config
+echo '[includeIf "hasconfig:remote.*.url:git@github.com:new-client-org/**"]' >> ~/.config/git/config
+echo '    path = ~/.config/git/identities/new-client.gitconfig' >> ~/.config/git/config
 
 # 5. Add public key to the git hosting account
 cat ~/.ssh/id_new_client.pub
@@ -276,9 +276,9 @@ git@bitbucket.org:{workspace}/{repo}.git
 Bitbucket also has an optional "projects" layer for grouping repos within a workspace, but projects are not part of the clone URL. A single `hasconfig` rule per workspace covers all repos in it:
 
 ```ini
-# ~/.gitconfig
+# ~/.config/git/config
 [includeIf "hasconfig:remote.*.url:git@bitbucket.org:work-workspace/**"]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
 ```
 
 ---
@@ -352,15 +352,15 @@ Host vs-ssh.visualstudio.com
 ```
 
 ```ini
-# ~/.gitconfig
+# ~/.config/git/config
 
 # dev.azure.com organization (matches git@ssh.dev.azure.com:v3/contoso/...)
 [includeIf "hasconfig:remote.*.url:git@ssh.dev.azure.com:v3/contoso/**"]
-    path = ~/.gitconfigs/contoso.gitconfig
+    path = ~/.config/git/identities/contoso.gitconfig
 
 # visualstudio.com organization (legacy URL, matches contoso@vs-ssh.visualstudio.com:...)
 [includeIf "hasconfig:remote.*.url:contoso@vs-ssh.visualstudio.com:*/**"]
-    path = ~/.gitconfigs/contoso.gitconfig
+    path = ~/.config/git/identities/contoso.gitconfig
 ```
 
 If you work with multiple Azure DevOps organizations, each gets its own `hasconfig` rule and gitconfig. Because `hasconfig` matches on the remote URL, you don't need per-org SSH host entries -- the `core.sshCommand` in each gitconfig handles key selection.
@@ -373,7 +373,7 @@ git evaluates configuration in this order:
 
 1. **Environment variables** (highest precedence) -- `GIT_SSH_COMMAND`, `GIT_AUTHOR_EMAIL`
 2. **Repository config** -- `.git/config`
-3. **Global config** -- `~/.gitconfig`
+3. **Global config** -- `~/.config/git/config`
 4. **System config** (lowest precedence) -- `/etc/gitconfig`
 
 ### Verify active identity
@@ -445,7 +445,7 @@ chmod 644 ~/.ssh/config
 
 **Wrong SSH user or port**: Most git hosting services use `git` as the SSH user (e.g., `git@github.com`). Gitea/Gogs instances may use `gogs` or a custom user. Some self-hosted instances run SSH on a non-standard port -- use `ssh://git@host:2222/org/repo.git` or configure the port in `~/.ssh/config`.
 
-**GitHub Desktop overwrites gitconfig**: GitHub Desktop may silently add a `[user]` section to your global `~/.gitconfig`, overriding your `includeIf`-based identities. Check `~/.gitconfig` after installing or updating GitHub Desktop.
+**GitHub Desktop overwrites gitconfig**: GitHub Desktop may silently add a `[user]` section to your global `~/.config/git/config`, overriding your `includeIf`-based identities. Check `~/.config/git/config` after installing or updating GitHub Desktop.
 
 ---
 
@@ -461,9 +461,9 @@ chmod 644 ~/.ssh/config
 
 ```ini
 [includeIf "gitdir:~/git/github.com/work-org/"]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
 [includeIf "gitdir:~/git/github.com/personal-account/"]
-    path = ~/.gitconfigs/personal.gitconfig
+    path = ~/.config/git/identities/personal.gitconfig
 ```
 
 **SSH Match with exec**: Uses `Match host github.com exec "pwd | grep /path/"` but doesn't work reliably across environments and has PATH dependencies.

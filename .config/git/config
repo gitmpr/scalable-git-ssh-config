@@ -1,7 +1,7 @@
-# ~/.gitconfig
+# ~/.config/git/config
 #
 # Example global git configuration.
-# Copy to ~/.gitconfig and adjust names, emails, org names, and key filenames.
+# Copy to ~/.config/git/config and adjust names, emails, org names, and key filenames.
 # Identity selection is based on the remote URL — works regardless of clone location.
 
 # Default identity (used when no includeIf matches)
@@ -15,21 +15,21 @@
 
 # Personal account on GitHub (SSH and HTTPS remotes)
 [includeIf "hasconfig:remote.*.url:git@github.com:personal-account/**"]
-    path = ~/.gitconfigs/personal.gitconfig
+    path = ~/.config/git/identities/personal.gitconfig
 [includeIf "hasconfig:remote.*.url:https://github.com/personal-account/**"]
-    path = ~/.gitconfigs/personal.gitconfig
+    path = ~/.config/git/identities/personal.gitconfig
 
 # Work org on GitHub
 [includeIf "hasconfig:remote.*.url:git@github.com:work-org/**"]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
 
 # Azure DevOps organization
 [includeIf "hasconfig:remote.*.url:git@ssh.dev.azure.com:v3/contoso/**"]
-    path = ~/.gitconfigs/contoso.gitconfig
+    path = ~/.config/git/identities/contoso.gitconfig
 
-# Unconditional work drop-in — silently ignored if absent (git ≥ 2.13).
-# On a work machine: place ~/.gitconfigs/work.gitconfig containing its own
+# Unconditional work drop-in — silently ignored if absent (git >= 2.13).
+# On a work machine: place ~/.config/git/identities/work.gitconfig containing its own
 # hasconfig conditions per client/server. This keeps those URLs out of the
-# public dotfiles repo. See .gitconfigs/work.gitconfig for an example.
+# public dotfiles repo. See .config/git/identities/work.gitconfig for an example.
 [include]
-    path = ~/.gitconfigs/work.gitconfig
+    path = ~/.config/git/identities/work.gitconfig
