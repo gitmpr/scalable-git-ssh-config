@@ -449,6 +449,14 @@ chmod 644 ~/.ssh/config
 
 ---
 
+## Extensions
+
+### Git Worktrees
+
+The host/org/repo directory structure from this guide extends naturally to git worktrees, where multiple branches of the same repository live as sibling subdirectories under a shared bare clone. See [git_worktrees.md](git_worktrees.md) for the layout, the tools involved (ghq-wt and git-wt), and how identity rules continue to work without changes.
+
+---
+
 ## Related Tools
 
 [git-whoami](https://github.com/gitmpr/git-whoami) -- shows your effective git identity and SSH key for the current directory. Works both inside and outside git repositories.
